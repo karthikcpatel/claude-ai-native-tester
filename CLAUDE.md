@@ -5,18 +5,21 @@ Improve test quality for a local sample payment/login application.
 Prefer small, reviewable, evidence-backed changes.
 
 ## Verified facts about this environment (Windows 11)
-- Capstone repo: this folder. Starter project (not part of this repo): ..\starter-repo\payment-login-java-project
-- Starter is plain Java (Maven, JUnit 5, Java 17 target, JDK 21 installed). It has NO web UI, NO endpoints,
+- Capstone repo: this folder. All Java work happens ONLY in java-app\ (committed baseline copy of the
+  starter, commit 41de0a6). NEVER modify, build, or run anything in ..\starter-repo; it is
+  the untouched original (untracked in its own git repo, so no undo).
+- Java app (java-app\) is plain Java (Maven, JUnit 5, Java 17 target, JDK 21 installed). It has NO web UI, NO endpoints,
   NO server/port and NO payment code. LoginService.login() throws UnsupportedOperationException.
 - The 4 existing Java tests are placeholders (assertTrue(true)); they prove nothing.
 - Only synthetic demo account: demo.user / DemoPass123! (in UserRepository.java).
 - Python 3.12 venv in .venv. ALWAYS use `python -m pip` and `python -m pytest`, never pip.exe
   (pip.exe is blocked by the organisation's Device Guard policy).
 - Activate venv (cmd): .venv\Scripts\activate.bat
-- Run Java tests: mvn test (run inside the starter project folder)
+- Run Java tests: mvn test (run inside java-app\)
+- Login behaviour spec (assumption, owner-approved): rag/knowledge/login_requirements.md
 - Run browser tests: python -m pytest tests/ui -v
 - Assumption (trainer unavailable): Playwright tests target a small local mock app added to this repo.
-  The Java starter stays untouched. Record this assumption in README.md.
+  ..\starter-repo stays untouched. Record this assumption in README.md.
 
 ## Rules
 - Inspect the repository before proposing file paths, commands, ports, selectors, or credentials.
