@@ -9,7 +9,8 @@ Prefer small, reviewable, evidence-backed changes.
   starter, commit 41de0a6). NEVER modify, build, or run anything in ..\starter-repo; it is
   the untouched original (untracked in its own git repo, so no undo).
 - Java app (java-app\) is plain Java (Maven, JUnit 5, Java 17 target, JDK 21 installed). It has NO web UI, NO endpoints,
-  NO server/port and NO payment code. LoginService.login() throws UnsupportedOperationException.
+  NO server/port and NO payment code. LoginService.login() is implemented per LR-1 to LR-8
+  (rag/knowledge/login_requirements.md).
 - The 4 existing Java tests are placeholders (assertTrue(true)); they prove nothing.
 - Only synthetic demo account: demo.user / DemoPass123! (in UserRepository.java).
 - Python 3.12 venv in .venv. ALWAYS use `python -m pip` and `python -m pytest`, never pip.exe
