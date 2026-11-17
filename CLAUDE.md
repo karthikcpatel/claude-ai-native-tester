@@ -11,7 +11,8 @@ Prefer small, reviewable, evidence-backed changes.
 - Java app (java-app\) is plain Java (Maven, JUnit 5, Java 17 target, JDK 21 installed). It has NO web UI, NO endpoints,
   NO server/port and NO payment code. LoginService.login() is implemented per LR-1 to LR-8
   (rag/knowledge/login_requirements.md).
-- The 4 existing Java tests are placeholders (assertTrue(true)); they prove nothing.
+- History: the original starter shipped 4 placeholder Java tests (assertTrue(true)) that proved
+  nothing. They were replaced in commit 5dcf195 by real LR-1 to LR-8 spec tests.
 - Only synthetic demo account: demo.user / DemoPass123! (in UserRepository.java).
 - Python 3.12 venv in .venv. ALWAYS use `python -m pip` and `python -m pytest`, never pip.exe
   (pip.exe is blocked by the organisation's Device Guard policy).
