@@ -1,0 +1,156 @@
+# AI-Native Quality Gate
+# Deterministic gate: secret scan, Java unit tests, Python unit + RAG-wiring + Playwright UI tests (all offline).
+# Optional, manual: live RAG evaluation with Ragas (calls the Anthropic API, so it uses a repository secret).
+name: AI-Native Quality Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_rag_eval:
+        description: "Also run the live Ragas evaluation (calls the Anthropic API, costs money)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Scan tracked files for secrets
+        run: python scripts/check_secrets.py
+
+  java-tests:
+    name: Java unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Run Maven tests
+        run: mvn -B -ntp -f java-app/pom.xml test
+      - name: Check the evidence (tests actually ran, none failed)
+        if: always()
+        run: python scripts/check_evidence.py java-app/target/surefire-reports/TEST-*.xml --require :30
+      - name: Upload Surefire reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: java-test-evidence
+          path: java-app/target/surefire-reports/
+          if-no-files-found: error
+
+  python-tests:
+    name: Python unit, RAG wiring and Playwright UI tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install dependencies (pinned)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Install Chromium for Playwright
+        run: python -m playwright install --with-deps chromium
+      - name: Run all offline tests
+        # No API key is available to this job: every test here uses mocks or the local mock app.
+        run: >
+          python -m pytest tests -v
+          --junitxml=reports/junit.xml
+          --tracing retain-on-failure
+          --screenshot only-on-failure
+          --output reports/playwright
+      - name: Check the evidence (enough tests passed, none failed, none silently skipped)
+        if: always()
+        run: >
+          python scripts/check_evidence.py reports/junit.xml
+          --require tests.ui:8 --require tests.rag:41 --require tests.unit:18
+      - name: Sanitize artifacts (fail if a secret-looking value is present)
+        id: sanitize
+        if: always()
+        run: python scripts/check_secrets.py --paths reports
+      - name: Upload test evidence
+        if: always() && steps.sanitize.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: python-test-evidence
+          path: reports/
+          if-no-files-found: error
+
+  quality-gate:
+    name: Quality gate (required check)
+    if: always()
+    needs: [secret-scan, java-tests, python-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every deterministic job to have succeeded
+        run: |
+          echo "secret-scan: ${{ needs.secret-scan.result }}"
+          echo "java-tests:  ${{ needs.java-tests.result }}"
+          echo "python-tests: ${{ needs.python-tests.result }}"
+          test "${{ needs.secret-scan.result }}" = "success"
+          test "${{ needs.java-tests.result }}" = "success"
+          test "${{ needs.python-tests.result }}" = "success"
+
+  rag-evaluation:
+    name: RAG evaluation (live, manual)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_rag_eval
+    needs: [quality-gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install dependencies (pinned)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run the Ragas evaluation (exit code 1 when a gate fails)
+        run: python -m rag.evaluate --out reports/rag
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Sanitize artifacts (fail if a secret-looking value is present)
+        id: sanitize
+        if: always()
+        run: python scripts/check_secrets.py --paths reports
+      - name: Upload RAG evaluation report
+        if: always() && steps.sanitize.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rag-evaluation
+          path: reports/rag/
+          if-no-files-found: error
