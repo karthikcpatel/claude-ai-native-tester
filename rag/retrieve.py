@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_LOG = Path("reports") / "rag-retrieval.jsonl"
+ANSWER_LOG = Path("reports") / "rag-answers.jsonl"
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,25 @@ def log_retrieval(question: str, found: list[Retrieved], path: Path = DEFAULT_LO
     record = {
         "question": question,
         "chunks": [{"chunk_id": r.chunk_id, "source": r.source, "version": r.version, "score": r.score} for r in found],
+    }
+    with path.open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(json.dumps(record) + "\n")
+
+
+def log_answer(question: str, found: list[Retrieved], answer, path: Path = ANSWER_LOG) -> None:
+    """Append the question, the answer text, the model, the prompt version, the latency and the chunk ids."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "question": question,
+        "answer": answer.text,
+        "abstained": answer.abstained,
+        "model": answer.model,
+        "prompt_version": answer.prompt_version,
+        "latency_s": answer.latency_s,
+        "input_tokens": answer.input_tokens,
+        "output_tokens": answer.output_tokens,
+        "chunk_ids": [r.chunk_id for r in found],
     }
     with path.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(json.dumps(record) + "\n")
