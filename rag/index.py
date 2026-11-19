@@ -22,16 +22,20 @@ def index_version(chunks: list[Chunk]) -> str:
     return digest.hexdigest()[:12]
 
 
-def build_index(chunks: list[Chunk], embedding_function=None, embedding_model: str = EMBEDDING_MODEL):
-    """Create an in-memory collection holding the chunks. Pass embedding_function to override the default model."""
+def build_index(
+    chunks: list[Chunk], embedding_function=None, embedding_model: str = EMBEDDING_MODEL, name: str = COLLECTION
+):
+    """Create an in-memory collection holding the chunks. Pass embedding_function to override the default model.
+
+    Use a different name for each index that must exist at the same time in one process."""
     client = chromadb.EphemeralClient(settings=Settings(anonymized_telemetry=False))
     try:
-        client.delete_collection(COLLECTION)
+        client.delete_collection(name)
     except Exception:  # the collection does not exist yet
         pass
     options = {} if embedding_function is None else {"embedding_function": embedding_function}
     collection = client.create_collection(
-        COLLECTION,
+        name,
         metadata={
             "hnsw:space": "cosine",
             "index_version": index_version(chunks),

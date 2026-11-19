@@ -67,3 +67,18 @@ def test_key_from_the_environment_is_returned_but_never_part_of_the_prompt(monke
     assert gen.require_api_key() == "test-key-value-not-real"
     assert "test-key-value-not-real" not in gen.SYSTEM_PROMPT
     assert "test-key-value-not-real" not in gen.build_user_message("q", [_chunk()])
+
+
+def test_a_reply_with_no_text_raises_instead_of_returning_an_empty_answer():
+    import pytest
+    from types import SimpleNamespace
+    from rag.generate import EmptyAnswer, generate
+
+    class Client:
+        class messages:
+            @staticmethod
+            def create(**kwargs):
+                return SimpleNamespace(content=[SimpleNamespace(type="thinking")], stop_reason="max_tokens", usage=None)
+
+    with pytest.raises(EmptyAnswer, match="max_tokens"):
+        generate("q", [], client=Client())

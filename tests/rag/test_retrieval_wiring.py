@@ -3,43 +3,12 @@
 They prove that indexing, cosine ranking, metadata and logging work. They do not judge the quality of the real
 embedding model; that is measured by the Ragas run on the evaluation dataset.
 """
-import hashlib
 import json
-import re
 
-from chromadb import Documents, EmbeddingFunction, Embeddings
-
+from helpers import BagOfWordsEmbedding
 from rag.chunking import load_chunks
 from rag.index import build_index, index_version
 from rag.retrieve import log_retrieval, retrieve
-
-DIMENSIONS = 256
-
-
-class BagOfWordsEmbedding(EmbeddingFunction):
-    def __init__(self):
-        pass
-
-    def __call__(self, input: Documents) -> Embeddings:
-        vectors = []
-        for text in input:
-            vector = [0.0] * DIMENSIONS
-            for word in re.findall(r"[a-z0-9]+", text.lower()):
-                vector[int(hashlib.md5(word.encode()).hexdigest(), 16) % DIMENSIONS] += 1.0
-            vectors.append(vector)
-        return vectors
-
-    @staticmethod
-    def name() -> str:
-        return "bag-of-words-test"
-
-    def get_config(self):
-        return {}
-
-    @staticmethod
-    def build_from_config(config):
-        return BagOfWordsEmbedding()
-
 
 def _index():
     chunks = load_chunks()

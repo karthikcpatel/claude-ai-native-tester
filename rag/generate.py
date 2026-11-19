@@ -14,8 +14,12 @@ from dotenv import find_dotenv, load_dotenv
 from rag.retrieve import Retrieved
 
 PROMPT_VERSION = "rag-prompt-v1"
+class EmptyAnswer(RuntimeError):
+    """The model produced no answer text (for example the token budget ran out while thinking)."""
+
+
 DEFAULT_MODEL = "claude-sonnet-5-5"
-MAX_TOKENS = 500
+MAX_TOKENS = 4096  # headroom: the model may spend part of the budget on thinking before it writes the answer
 ABSTAIN_TEXT = "The knowledge base does not contain enough information to answer this question."
 
 SYSTEM_PROMPT = f"""You answer questions about a QA capstone project using ONLY the retrieved passages in the user message.
@@ -41,6 +45,7 @@ class Answer:
     latency_s: float
     input_tokens: int | None
     output_tokens: int | None
+    stop_reason: str | None = None
 
     @property
     def abstained(self) -> bool:
@@ -99,6 +104,9 @@ def generate(question: str, retrieved: list[Retrieved], client=None, model: str 
     latency = time.perf_counter() - started
     text = "".join(block.text for block in response.content if getattr(block, "type", "") == "text").strip()
     usage = getattr(response, "usage", None)
+    if not text:
+        reason = getattr(response, "stop_reason", None)
+        raise EmptyAnswer(f"The model returned no text (stop_reason={reason}). Raise MAX_TOKENS or retry.")
     return Answer(
         text=text,
         model=model,
@@ -106,4 +114,5 @@ def generate(question: str, retrieved: list[Retrieved], client=None, model: str 
         latency_s=round(latency, 3),
         input_tokens=getattr(usage, "input_tokens", None),
         output_tokens=getattr(usage, "output_tokens", None),
+        stop_reason=getattr(response, "stop_reason", None),
     )
