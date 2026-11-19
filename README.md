@@ -190,3 +190,4 @@ After Python tests you may see a `multiprocess` `AttributeError` traceback at in
 - `docs/ui-test-report.md` - Playwright suite, mutation challenge, defect reports
 - `docs/runbook.md` - day-to-day operation and troubleshooting
 - `docs/demo-script.md` - the 5 to 10 minute demonstration
+- `docs/demo-walkthrough.md` - written walkthrough of the five demo items with real outputs
