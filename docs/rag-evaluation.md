@@ -71,7 +71,23 @@ Run 1 was not a clean pass, and the failures were informative.
 - **Factual correctness is strict.** Answers are worded differently from the short reference sentences, so the claim matching under-scores them (mean 0.67). It is reported, not gated.
 - **Illustrative thresholds.** The gate values come from the guide and were not calibrated on human-reviewed examples.
 - **Retrieval observations.** RAG-12 has context precision 0.5 (one retrieved chunk was not useful). RAG-04's question about lockout limits has no matching chunk, and the assistant correctly said the documents do not specify it.
-- **Not yet reviewed by hand:** cases with faithfulness below 1.0 in run 2 (RAG-05, 0.8) and factual correctness at or below 0.5 (RAG-01, 03, 04, 05, 08, 11). Reading those answers against their references is the next quality step.
+- **Hand review is partial:** only RAG-03, RAG-05 and RAG-12 were reviewed against their references (see the failure analysis). The other cases with factual correctness at or below 0.5 (RAG-01, 04, 08, 11) were not.
+
+## Failure analysis (run 2, hand review of the lowest scores)
+
+The lowest-scoring cases in the passing run were read against their references and retrieved chunks.
+
+| Case | Scores | What happened | Verdict |
+|---|---|---|---|
+| RAG-03 "May logs contain passwords or tokens?" | factual correctness 0.40, answer relevancy 0.68 | The answer is correct ("No", citing PT-8). It also adds two grounded extras the one-sentence reference does not contain: the past defect D-3, and a note that login logging is not specified. Claim matching penalises the extra claims, and relevancy drops for the tangent. | Metric artifact from verbose answers, not a wrong answer |
+| RAG-05 "Can the same idempotency key charge twice?" | faithfulness 0.80, factual correctness 0.50 | The answer is correct ("No", citing PT-7) and adds the story of defect D-2. About one in five claims was judged unsupported. The most likely culprit is an interpretive sentence ("showed this can go wrong"), but the per-claim verdicts were not saved, so this is a hypothesis, not a verified cause. | Probably a mild over-statement; per-claim output should be saved next time |
+| RAG-12 "Should leading or trailing spaces in the password be trimmed?" | context precision 0.50 | Retrieval noise. For a question about password trimming, the top-ranked chunk was defect D-3 (password in a debug log), because the two share the word "password". Only the login-rules chunks were needed. The answer itself was right and correctly hedged: it noted that the rule names a trailing space on the password and a leading space on the username, so a leading space on the password is not covered explicitly. | A real retrieval weakness, not a generation fault |
+
+Patterns and possible improvements (none applied, to keep run 2 comparable with the frozen dataset and prompt `rag-prompt-v1`):
+
+- Answers are longer than the references, which depresses factual correctness and answer relevancy. A prompt revision (answer first, add context only when it changes the answer) would likely help.
+- Retrieval ranks by general similarity, so shared common words can pull in unrelated chunks. A reranker or a smaller `k` could improve context precision.
+- Saving Ragas's per-claim verdicts would turn hypotheses like the RAG-05 one into verified findings.
 
 ## Offline tests for the evaluator
 
